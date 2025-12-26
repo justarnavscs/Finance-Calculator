@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compound Interest Calculator - Complete Source Code</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #c9d1d9; line-height: 1.6; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 40px 20px; }
+        h1 { color: #58a6ff; border-bottom: 2px solid #30363d; padding-bottom: 20px; margin-bottom: 30px; font-size: 2.5em; }
+        h2 { color: #79c0ff; margin-top: 40px; margin-bottom: 20px; font-size: 1.8em; }
+        .section { margin-bottom: 30px; }
+        .file-block { background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+        .file-header { background: #0d1117; color: #58a6ff; padding: 12px 15px; font-family: 'Courier New', monospace; font-weight: bold; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
+        .copy-btn { background: #238636; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .copy-btn:hover { background: #2ea043; }
+        pre { padding: 15px; overflow-x: auto; background: #0d1117; }
+        code { font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.5; color: #c9d1d9; }
+        .tree { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 20px; margin-bottom: 30px; font-family: 'Courier New', monospace; font-size: 14px; }
+        .features { list-style: none; margin: 20px 0; }
+        .features li { padding: 8px 0; padding-left: 30px; position: relative; }
+        .features li:before { content: "✓"; position: absolute; left: 0; color: #3fb950; font-weight: bold; }
+        .footer { text-align: center; color: #8b949e; margin-top: 50px; padding-top: 20px; border-top: 1px solid #30363d; }
+        .toc { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 20px; margin-bottom: 30px; }
+        .toc a { color: #58a6ff; text-decoration: none; display: block; padding: 5px 0; }
+        .toc a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💰 Compound Interest Calculator - Complete Source Code</h1>
+        <p style="font-size: 16px; margin-bottom: 30px;">Full-stack TypeScript application with React, Node.js, Express, and PostgreSQL</p>
+
+        <div class="toc">
+            <h3 style="color: #79c0ff; margin-bottom: 15px;">📑 Contents</h3>
+            <a href="#structure">Project Structure</a>
+            <a href="#backend">Backend Files</a>
+            <a href="#frontend">Frontend Files</a>
+            <a href="#features">Features</a>
+            <a href="#setup">Quick Setup</a>
+        </div>
+
+        <section id="structure">
+            <h2>📂 Project Structure</h2>
+            <div class="tree">compound-interest-calculator/
+├── client/src/
+│   ├── pages/
+│   │   └── Home.tsx                 # Main dashboard with sidebar
+│   ├── components/
+│   │   ├── GrowthChart.tsx          # Recharts area chart
+│   │   ├── InputCard.tsx            # Input fields with icons
+│   │   ├── StatCard.tsx             # Statistics display
+│   │   └── SavedCalculations.tsx    # Saved scenarios sidebar
+│   ├── hooks/
+│   │   └── use-calculations.ts      # React Query hooks
+│   ├── lib/
+│   │   └── finance.ts               # Calculator logic
+│   └── App.tsx
+├── server/
+│   ├── db.ts                        # Database connection
+│   ├── storage.ts                   # Storage interface/implementation
+│   └── routes.ts                    # Express API routes
+├── shared/
+│   ├── schema.ts                    # Drizzle schema & types
+│   └── routes.ts                    # API contract
+├── package.json
+├── tsconfig.json
+├── tailwind.config.ts
+└── vite.config.ts
+            </div>
+        </section>
+
+        <section id="backend">
+            <h2>🔧 Backend Files</h2>
+
+            <div class="file-block">
+                <div class="file-header">
+                    <span>shared/schema.ts</span>
+                    <button class="copy-btn" onclick="copyCode('schema')">Copy</button>
+                </div>
+                <pre><code id="schema">import { pgTable, text, serial, numeric, timestamp } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+export const calculations = pgTable("calculations", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  initialAmount: numeric("initial_amount").notNull(),
+  monthlyContribution: numeric("monthly_contribution").notNull(),
+  interestRate: numeric("interest_rate").notNull(),
+  years: numeric("years").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCalculationSchema = createInsertSchema(calculations).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type Calculation = typeof calculations.$inferSelect;
+export type InsertCalculation = z.infer&lt;typeof insertCalculationSchema&gt;;</code></pre>
+            </div>
+
+            <div class="file-block">
+                <div class="file-header">
+                    <span>shared/routes.ts</span>
+                    <button class="copy-btn" onclick="copyCode('routes-shared')">Copy</button>
+                </div>
+                <pre><code id="routes-shared">import { z } from 'zod';
+import { insertCalculationSchema, calculations } from './schema';
+
+export const errorSchemas = {
+  validation: z.object({ message: z.string(), field: z.string().optional() }),
+  notFound: z.object({ message: z.string() }),
+  internal: z.object({ message: z.string() }),
+};
+
+export const api = {
+  calculations: {
+    list: { method: 'GET' as const, path: '/api/calculations', responses: { 200: z.array(z.custom&lt;typeof calculations.$inferSelect&gt;()) } },
+    create: { method: 'POST' as const, path: '/api/calculations', input: insertCalculationSchema, responses: { 201: z.custom&lt;typeof calculations.$inferSelect&gt;(), 400: errorSchemas.validation } },
+    delete: { method: 'DELETE' as const, path: '/api/calculations/:id', responses: { 204: z.void(), 404: errorSchemas.notFound } },
+  },
+};
+
+export function buildUrl(path: string, params?: Record&lt;string, string | number&gt;): string {
+  let url = path;
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (url.includes(`:${key}`)) url = url.replace(`:${key}`, String(value));
+    });
+  }
+  return url;
+}</code></pre>
+            </div>
+
+            <div class="file-block">
+                <div class="file-header">
+                    <span>server/db.ts</span>
+                    <button class="copy-btn" onclick="copyCode('db')">Copy</button>
+                </div>
+                <pre><code id="db">import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
+import * as schema from "@shared/schema";
+
+const { Pool } = pg;
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
+}
+
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const db = drizzle(pool, { schema });</code></pre>
+            </div>
+
+            <div class="file-block">
+                <div class="file-header">
+                    <span>server/storage.ts</span>
+                    <button class="copy-btn" onclick="copyCode('storage')">Copy</button>
+                </div>
+                <pre><code id="storage">import { db } from "./db";
+import { calculations, type InsertCalculation, type Calculation } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
+
+export interface IStorage {
+  getCalculations(): Promise&lt;Calculation[]&gt;;
+  createCalculation(calculation: InsertCalculation): Promise&lt;Calculation&gt;;
+  deleteCalculation(id: number): Promise&lt;void&gt;;
+}
+
+export class DatabaseStorage implements IStorage {
+  async getCalculations(): Promise&lt;Calculation[]&gt; {
+    return await db.select().from(calculations).orderBy(desc(calculations.createdAt));
+  }
+
+  async createCalculation(insertCalculation: InsertCalculation): Promise&lt;Calculation&gt; {
+    const [calculation] = await db.insert(calculations).values(insertCalculation).returning();
+    return calculation;
+  }
+
+  async deleteCalculation(id: number): Promise&lt;void&gt; {
+    await db.delete(calculations).where(eq(calculations.id, id));
+  }
+}
+
+export const storage = new DatabaseStorage();</code></pre>
+            </div>
+
+            <div class="file-block">
+                <div class="file-header">
+                    <span>server/routes.ts</span>
+                    <button class="copy-btn" onclick="copyCode('routes-server')">Copy</button>
+                </div>
+                <pre><code id="routes-server">import type { Express } from "express";
+import type { Server } from "http";
+import { storage } from "./storage";
+import { api } from "@shared/routes";
+import { z } from "zod";
+
+export async function registerRoutes(httpServer: Server, app: Express): Promise&lt;Server&gt; {
+  app.get(api.calculations.list.path, async (req, res) => {
+    const items = await storage.getCalculations();
+    res.json(items);
+  });
+
+  app.post(api.calculations.create.path, async (req, res) => {
+    try {
+      const input = api.calculations.create.input.parse(req.body);
+      const item = await storage.createCalculation(input);
+      res.status(201).json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.calculations.delete.path, async (req, res) => {
+    await storage.deleteCalculation(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  return httpServer;
+}
+
+async function seedDatabase() {
+  const existing = await storage.getCalculations();
+  if (existing.length === 0) {
+    await storage.createCalculation({
+      name: "Millionaire by 65",
+      initialAmount: "10000",
+      monthlyContribution: "500",
+      interestRate: "10",
+      years: "30"
+    });
+  }
+}
+
+seedDatabase().catch(console.error);</code></pre>
+            </div>
+        </section>
+
+        <section id="frontend">
+            <h2>⚛️ Frontend Files</h2>
+
+            <div class="file-block">
+                <div class="file-header">
+                    <span>client/src/lib/finance.ts</span>
+                    <button class="copy-btn" onclick="copyCode('finance')">Copy</button>
+                </div>
+                <pre><code id="finance">export interface CalculationResult {
+  year: number;
+  invested: number;
+  interest: number;
+  total: number;
+}
+
+export const calculateGrowth = (initial: number, monthly: number, rate: number, years: number): CalculationResult[] => {
+  const results: CalculationResult[] = [];
+  const monthlyRate = rate / 100 / 12;
+  const totalMonths = years * 12;
+
+  let currentBalance = initial;
+  let totalInvested = initial;
+
+  results.push({ year: 0, invested: initial, interest: 0, total: initial });
+
+  for (let month = 1; month &lt;= totalMonths; month++) {
+    currentBalance += monthly;
+    totalInvested += monthly;
+    const interestEarned = currentBalance * monthlyRate;
+    currentBalance += interestEarned;
+
+    if (month % 12 === 0) {
+      const year = month / 12;
+      results.push({
+        year,
+        invested: Math.round(totalInvested),
+        interest: Math.round(currentBalance - totalInvested),
+        total: Math.round(currentBalance),
+      });
+    }
+  }
+
+  return results;
+};
+
+export const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+export const formatCompactCurrency = (value: number) => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+};</code></pre>
+            </div>
+
+            <div class="file-block">
+                <div class="file-header">
+                    <span>client/src/hooks/use-calculations.ts</span>
+                    <button class="copy-btn" onclick="copyCode('hooks')">Copy</button>
+                </div>
+                <pre><code id="hooks">import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api, buildUrl } from "@shared/routes";
+import { type InsertCalculation, type Calculation } from "@shared/schema";
+
+export function useCalculations() {
+  return useQuery({
+    queryKey: [api.calculations.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.calculations.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch calculations");
+      return api.calculations.list.responses[200].parse(await res.json());
+    },
+  });
+}
+
+export function useCreateCalculation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: InsertCalculation) => {
+      const res = await fetch(api.calculations.create.path, {
+        method: api.calculations.create.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        if (res.status === 400) {
+          const error = api.calculations.create.responses[400].parse(await res.json());
+          throw new Error(error.message);
+        }
+        throw new Error("Failed to save calculation");
+      }
+      return api.calculations.create.responses[201].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.calculations.list.path] });
+    },
+  });
+}
+
+export function useDeleteCalculation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.calculations.delete.path, { id });
+      const res = await fetch(url, { method: api.calculations.delete.method, credentials: "include" });
+      if (res.status === 404) throw new Error("Calculation not found");
+      if (!res.ok) throw new Error("Failed to delete calculation");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.calculations.list.path] });
+    },
+  });
+}</code></pre>
+            </div>
+
+            <div class="file-block">
+                <div class="file-header">
+                    <span>client/src/components/InputCard.tsx</span>
+                    <button class="copy-btn" onclick="copyCode('input-card')">Copy</button>
+                </div>
+                <pre><code id="input-card">import { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface InputCardProps {
+  label: string;
+  value: number | string;
+  onChange: (value: string) => void;
+  icon: LucideIcon;
+  prefix?: string;
+  suffix?: string;
+  min?: number;
+  step?: number;
+  className?: string;
+}
+
+export function InputCard({ label, value, onChange, icon: Icon, prefix, suffix, min = 0, step = 1, className }: InputCardProps) {
+  return (
+    &lt;div className={cn("bg-card rounded-2xl p-5 shadow-sm border border-border/50 hover:border-border transition-colors", className)}&gt;
+      &lt;div className="flex items-center gap-2 mb-3"&gt;
+        &lt;div className="p-2 rounded-lg bg-primary/10 text-primary"&gt;
+          &lt;Icon className="w-4 h-4" /&gt;
+        &lt;/div&gt;
+        &lt;label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide"&gt;{label}&lt;/label&gt;
+      &lt;/div&gt;
+      &lt;div className="relative group input-group-focus rounded-xl transition-all duration-200"&gt;
+        {prefix && &lt;span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium"&gt;{prefix}&lt;/span&gt;}
+        &lt;input type="number" value={value} onChange={(e) => onChange(e.target.value)} min={min} step={step} 
+          className={cn("w-full bg-background border-2 border-transparent px-4 py-3 rounded-xl text-2xl font-bold text-foreground focus:outline-none transition-all placeholder:text-muted-foreground/30", prefix && "pl-8", suffix && "pr-8")} /&gt;
+        {suffix && &lt;span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium"&gt;{suffix}&lt;/span&gt;}
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+            </div>
+
+            <div class="file-block">
+                <div class="file-header">
+                    <span>client/src/components/StatCard.tsx</span>
+                    <button class="copy-btn" onclick="copyCode('stat-card')">Copy</button>
+                </div>
+                <pre><code id="stat-card">import { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/finance";
+
+interface StatCardProps {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+  color?: "default" | "primary" | "secondary" | "accent";
+}
+
+export function StatCard({ label, value, icon: Icon, color = "default" }: StatCardProps) {
+  const colorStyles = { default: "text-foreground bg-background", primary: "text-primary bg-primary/5", secondary: "text-blue-600 bg-blue-50", accent: "text-accent bg-accent/5" };
+  const iconStyles = { default: "text-muted-foreground bg-muted", primary: "text-primary bg-primary/10", secondary: "text-blue-600 bg-blue-100", accent: "text-accent bg-accent/10" };
+
+  return (
+    &lt;div className={cn("rounded-2xl p-6 border border-border/50 shadow-sm", colorStyles[color])}&gt;
+      &lt;div className="flex justify-between items-start mb-4"&gt;
+        &lt;p className="font-medium text-muted-foreground text-sm uppercase tracking-wider"&gt;{label}&lt;/p&gt;
+        &lt;div className={cn("p-2 rounded-lg", iconStyles[color])}&gt;
+          &lt;Icon className="w-5 h-5" /&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;h3 className="text-3xl font-bold tracking-tight"&gt;{formatCurrency(value)}&lt;/h3&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+            </div>
+        </section>
+
+        <section id="features">
+            <h2>✨ Key Features</h2>
+            <ul class="features">
+                <li>Real-time compound interest calculation with monthly compounding</li>
+                <li>Interactive area chart showing invested vs. total balance over time</li>
+                <li>Save/load calculation scenarios to PostgreSQL database</li>
+                <li>Preset interest rate options (S&P 500, HYSA, Conservative, Aggressive)</li>
+                <li>Responsive mobile-friendly financial dashboard design</li>
+                <li>Type-safe API with Zod validation</li>
+                <li>TanStack React Query for efficient data fetching</li>
+                <li>Drizzle ORM with PostgreSQL database</li>
+                <li>Beautiful UI with Tailwind CSS and shadcn/ui components</li>
+            </ul>
+        </section>
+
+        <section id="setup">
+            <h2>🚀 Quick Setup</h2>
+            <div class="file-block">
+                <div class="file-header">
+                    <span>Terminal Commands</span>
+                    <button class="copy-btn" onclick="copyCode('setup')">Copy</button>
+                </div>
+                <pre><code id="setup">npm install                    # Install dependencies
+npm run db:push               # Initialize database schema
+npm run dev                   # Start development server (http://localhost:5000)</code></pre>
+            </div>
+        </section>
+
+        <div class="footer">
+            <p>Compound Interest Calculator - Complete Source Code</p>
+            <p style="margin-top: 10px; font-size: 12px;">Generated December 26, 2025</p>
+        </div>
+    </div>
+
+    <script>
+        function copyCode(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                const original = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = original; }, 2000);
+            }).catch(() => {
+                alert('Failed to copy. Please try again.');
+            });
+        }
+    </script>
+</body>
+</html>
